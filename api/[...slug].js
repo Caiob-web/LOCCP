@@ -1,37 +1,43 @@
 // api/[...slug].js
-// Serverless wrapper para Vercel, agora usando DATABASE_URL para Neon DB
+// Serverless wrapper para Vercel, configurando Pool via variáveis atômicas do Neon
 
-const serverless = require("serverless-http");
-const express    = require("express");
-const { Pool }   = require("pg");
-require("dotenv").config();
+const serverless = require('serverless-http');
+const express    = require('express');
+const { Pool }   = require('pg');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
-// Pool configurado via connectionString (inclui sslmode e channel_binding)
+// ─── Configuração do Pool ──────────────────────────────────────────────────────
+// Credenciais e host via PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT
+// SSL desativando verificação de certificado e timeouts para não travar indefinidamente
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  user:                    process.env.PGUSER,
+  password:                process.env.PGPASSWORD,
+  host:                    process.env.PGHOST,
+  database:                process.env.PGDATABASE,
+  port:                    parseInt(process.env.PGPORT, 10),
   ssl:                     { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis:       10000,
+  connectionTimeoutMillis: 5000,   // 5s para erro de conexão
+  idleTimeoutMillis:       10000,  // 10s para fechar conexões ociosas
 });
 
-console.log("✅ Serverless function initialized. Using DB URL:", process.env.DATABASE_URL);
+console.log('✅ Serverless function initialized. DB Pool created.');
 
-// Health-check: GET /api/health
-app.get("/health", async (req, res) => {
+// ─── Health-check: GET /api/health ─────────────────────────────────────────────
+app.get('/health', async (_req, res) => {
   try {
-    await pool.query("SELECT 1");
+    await pool.query('SELECT 1');
     return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("❌ Health-check failed:", err);
+    console.error('❌ Health-check failed:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// Buscar um poste: GET /api/poste?cp=...&cs=...
-app.get("/poste", async (req, res) => {
+// ─── Buscar um poste: GET /api/poste?cp=...&cs=... ─────────────────────────────
+app.get('/poste', async (req, res) => {
   const { cp, cs } = req.query;
   console.log(`🔍 /api/poste called with cp=${cp}, cs=${cs}`);
 
@@ -50,36 +56,37 @@ app.get("/poste", async (req, res) => {
     console.log(`➡️ DB returned ${rows.length} row(s)`);
 
     if (rows.length === 0) {
-      return res.status(404).json({ erro: "Poste não encontrado" });
+      return res.status(404).json({ erro: 'Poste não encontrado' });
     }
     return res.status(200).json(rows[0]);
   } catch (err) {
-    console.error("❌ Query error:", err);
-    return res.status(500).json({ erro: "Erro interno no servidor" });
+    console.error('❌ Query error:', err);
+    return res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
-// Listar todos os postes: GET /api/postes
-app.get("/postes", async (_req, res) => {
-  console.log("🔍 /api/postes called");
+// ─── Listar todos os postes: GET /api/postes ────────────────────────────────────
+app.get('/postes', async (_req, res) => {
+  console.log('🔍 /api/postes called');
   try {
-    const { rows } = await pool.query(
-      `SELECT cp, cs, municipio, coordenadas
-       FROM localizacao_cp_cs
-       WHERE coordenadas IS NOT NULL`
-    );
-    console.log(`➡️ DB returned ${rows.length} pontos`);
+    const { rows } = await pool.query(`
+      SELECT cp, cs, municipio, coordenadas
+      FROM localizacao_cp_cs
+      WHERE coordenadas IS NOT NULL
+    `);
+    console.log(`➡️ DB returned ${rows.length} ponto(s)`);
     return res.status(200).json(rows);
   } catch (err) {
-    console.error("❌ Error fetching all postes:", err);
-    return res.status(500).json({ erro: "Erro ao buscar coordenadas" });
+    console.error('❌ Error fetching all postes:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar coordenadas' });
   }
 });
 
-// Rota fallback para 404 JSON
-app.use((req, res) => {
-  console.warn(`⚠️ 404 on ${req.method} ${req.originalUrl}`);
-  res.status(404).json({ erro: "Not Found" });
+// ─── Fallback para rotas não encontradas ────────────────────────────────────────
+app.use((_req, res) => {
+  console.warn(`⚠️ 404 on ${_req.method} ${_req.originalUrl}`);
+  res.status(404).json({ erro: 'Not Found' });
 });
 
-module.exports = serverless(app, { basePath: "/api" });
+// ─── Exporta o handler como Serverless Function em /api ────────────────────────
+module.exports = serverless(app, { basePath: '/api' });
