@@ -1,5 +1,5 @@
 // api/[...slug].js
-// Serverless wrapper para Vercel, configurando Pool via variáveis atômicas do Neon
+// Serverless wrapper para Vercel, com rota de ping e ajustes para evitar 504
 
 const serverless = require('serverless-http');
 const express    = require('express');
@@ -10,8 +10,8 @@ const app = express();
 app.use(express.json());
 
 // ─── Configuração do Pool ──────────────────────────────────────────────────────
-// Credenciais e host via PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT
-// SSL desativando verificação de certificado e timeouts para não travar indefinidamente
+// Usa variáveis atômicas do Neon (PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT)
+// SSL sem validação de certificado e timeouts para evitar pendências
 const pool = new Pool({
   user:                    process.env.PGUSER,
   password:                process.env.PGPASSWORD,
@@ -19,11 +19,17 @@ const pool = new Pool({
   database:                process.env.PGDATABASE,
   port:                    parseInt(process.env.PGPORT, 10),
   ssl:                     { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,   // 5s para erro de conexão
+  connectionTimeoutMillis: 5000,   // 5s para falhar se não conectar
   idleTimeoutMillis:       10000,  // 10s para fechar conexões ociosas
 });
 
 console.log('✅ Serverless function initialized. DB Pool created.');
+
+// ─── Rota de diagnóstico rápido ───────────────────────────────────────────────
+// Testa se a função está respondendo sem envolver banco de dados
+app.get('/ping', (_req, res) => {
+  res.status(200).json({ pong: true });
+});
 
 // ─── Health-check: GET /api/health ─────────────────────────────────────────────
 app.get('/health', async (_req, res) => {
@@ -69,11 +75,11 @@ app.get('/poste', async (req, res) => {
 app.get('/postes', async (_req, res) => {
   console.log('🔍 /api/postes called');
   try {
-    const { rows } = await pool.query(`
-      SELECT cp, cs, municipio, coordenadas
-      FROM localizacao_cp_cs
-      WHERE coordenadas IS NOT NULL
-    `);
+    const { rows } = await pool.query(
+      `SELECT cp, cs, municipio, coordenadas
+       FROM localizacao_cp_cs
+       WHERE coordenadas IS NOT NULL`
+    );
     console.log(`➡️ DB returned ${rows.length} ponto(s)`);
     return res.status(200).json(rows);
   } catch (err) {
@@ -88,5 +94,5 @@ app.use((_req, res) => {
   res.status(404).json({ erro: 'Not Found' });
 });
 
-// ─── Exporta o handler como Serverless Function em /api ────────────────────────
+// ─── Exporta como Serverless Function em /api ─────────────────────────────────
 module.exports = serverless(app, { basePath: '/api' });
