@@ -9,19 +9,14 @@ const loadingOverlay = document.getElementById("loading-overlay");
 const radioModo = document.querySelectorAll("input[name='modo']");
 const grupoCS = document.getElementById("grupo-cs");
 
-// Mostra ou esconde o campo CS
+// Controla exibição do campo CS
 radioModo.forEach(radio => {
   radio.addEventListener("change", () => {
-    if (radio.checked && radio.value === "cp_cs") {
-      grupoCS.style.display = "block";
-    } else if (radio.checked && radio.value === "cp") {
-      grupoCS.style.display = "none";
-    }
+    grupoCS.style.display = radio.checked && radio.value === "cp_cs" ? "block" : "none";
   });
 });
 
-// Função para mostrar/esconder o loading
-function toggleLoading(show) {
+// Função para mostrar/esconder o loadingunction toggleLoading(show) {
   loadingOverlay.style.display = show ? "flex" : "none";
 }
 
@@ -85,17 +80,17 @@ function mostrarResultado(item, modo) {
 
   if (modo === "cp_cs") {
     resultadoDiv.innerHTML = `
-      <p><strong>Município:</strong> ${item.municipio || 'N/A'}</p>
-      <p><strong>Endereço:</strong> ${item.endereco || 'N/A'}</p>
-      <p><strong>Bairro:</strong> ${item.bairro || 'N/A'}</p>
-      <p><strong>ET:</strong> ${item.et || 'N/A'}</p>
-      <p><strong>CS Série:</strong> ${item.cs_serie || 'N/A'}</p>
+      <p><strong>Município:</strong> ${item.municipio || "N/A"}</p>
+      <p><strong>Endereço:</strong> ${item.endereco || "N/A"}</p>
+      <p><strong>Bairro:</strong> ${item.bairro || "N/A"}</p>
+      <p><strong>ET:</strong> ${item.et || "N/A"}</p>
+      <p><strong>CS Série:</strong> ${item.cs_serie || "N/A"}</p>
       <p><strong>Localização:</strong> <a href="${linkMapa}" target="_blank">Abrir no Google Maps</a></p>
     `;
   } else {
     resultadoDiv.innerHTML = `
-      <p><strong>CP Série:</strong> ${item.cp_serie || 'N/A'}</p>
-      <p><strong>ET:</strong> ${item.et || 'N/A'}</p>
+      <p><strong>CP Série:</strong> ${item.cp_serie || "N/A"}</p>
+      <p><strong>ET:</strong> ${item.et || "N/A"}</p>
       <p><strong>Localização:</strong> <a href="${linkMapa}" target="_blank">Abrir no Google Maps</a></p>
     `;
   }
