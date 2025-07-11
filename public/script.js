@@ -1,31 +1,37 @@
 // script.js
-// Lógica de front-end para buscar CP e CP+CS no LOCCP
+// Lógica de front-end para LOCCP — CP e CP+CS
 
 // Elementos do DOM
-const cpInput = document.getElementById("cp");
-const csInput = document.getElementById("cs");
-const resultadoDiv = document.getElementById("resultado");
+const cpInput       = document.getElementById("cp");
+const csInput       = document.getElementById("cs");
+const resultadoDiv  = document.getElementById("resultado");
 const loadingOverlay = document.getElementById("loading-overlay");
-const radioModo = document.querySelectorAll("input[name='modo']");
-const grupoCS = document.getElementById("grupo-cs");
+const radiosModo    = document.querySelectorAll("input[name='modo']");
+const grupoCS       = document.getElementById("grupo-cs");
+const form          = document.getElementById("buscaForm");
+const btnLimpar     = document.getElementById("limparBtn");
+const btnMapa       = document.getElementById("mapaBtn");
 
-// Controla exibição do campo CS
-radioModo.forEach(radio => {
-  radio.addEventListener("change", () => {
-    grupoCS.style.display = radio.checked && radio.value === "cp_cs" ? "block" : "none";
-  });
-});
+// Base da API (ex: https://seuapp.vercel.app)
+const API_BASE = window.location.origin;
 
-// Função para mostrar/esconder o loadingunction toggleLoading(show) {
+// Mostra/esconde o overlay de loading
+function toggleLoading(show) {
   loadingOverlay.style.display = show ? "flex" : "none";
 }
 
-// Função principal de busca
+// Atualiza visibilidade do campo CS
+function atualizarModo() {
+  const modo = document.querySelector("input[name='modo']:checked").value;
+  grupoCS.style.display = modo === "cp_cs" ? "block" : "none";
+}
+
+// Formata e dispara a busca
 async function buscar(event) {
   event.preventDefault();
   const modo = document.querySelector("input[name='modo']:checked").value;
-  const cp = cpInput.value.trim();
-  const cs = csInput.value.trim();
+  const cp   = cpInput.value.trim();
+  const cs   = csInput.value.trim();
 
   // Validações
   if (!cp) {
@@ -41,42 +47,39 @@ async function buscar(event) {
   resultadoDiv.textContent = "";
 
   // Monta URL da API
-  const query = new URLSearchParams({ cp });
-  if (modo === "cp_cs") query.append("cs", cs);
-  const url = `${API_BASE}/api/poste?${query.toString()}`;
-  console.log("Chamando API:", url);
+  const params = new URLSearchParams({ cp });
+  if (modo === "cp_cs") params.append("cs", cs);
+  const url = `${API_BASE}/api/poste?${params.toString()}`;
 
   try {
+    console.log("🔍 Chamando API:", url);
     const res = await fetch(url);
-    console.log("Status:", res.status);
+    console.log("➡️ Status:", res.status);
+
     if (!res.ok) {
-      resultadoDiv.textContent = modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
+      resultadoDiv.textContent = modo === "cp"
+        ? "CP não encontrado."
+        : "CP + CS não encontrado.";
       return;
     }
+
     const data = await res.json();
     mostrarResultado(data, modo);
+
   } catch (err) {
-    console.error("Erro ao buscar dados:", err);
+    console.error("❌ Erro de conexão:", err);
     resultadoDiv.textContent = "Erro de conexão, tente novamente.";
   } finally {
     toggleLoading(false);
   }
 }
 
-document.getElementById("buscaForm").addEventListener("submit", buscar);
-document.getElementById("limparBtn").addEventListener("click", () => {
-  cpInput.value = "";
-  csInput.value = "";
-  resultadoDiv.textContent = "";
-});
-document.getElementById("mapaBtn").addEventListener("click", () => {
-  window.open("/mapa.html", "_blank");
-});
-
-// Exibe os dados retornados
+// Renderiza resultado no DOM
 function mostrarResultado(item, modo) {
-  const gps = item.coordenadas || "";
-  const linkMapa = gps ? `https://www.google.com/maps?q=${gps}` : "#";
+  const coords = item.coordenadas || "";
+  const linkMapa = coords
+    ? `https://www.google.com/maps?q=${coords}`
+    : "#";
 
   if (modo === "cp_cs") {
     resultadoDiv.innerHTML = `
@@ -95,3 +98,18 @@ function mostrarResultado(item, modo) {
     `;
   }
 }
+
+// Hooks de evento
+radiosModo.forEach(r => r.addEventListener("change", atualizarModo));
+form.addEventListener("submit", buscar);
+btnLimpar.addEventListener("click", () => {
+  cpInput.value = "";
+  csInput.value = "";
+  resultadoDiv.textContent = "";
+});
+btnMapa.addEventListener("click", () => {
+  window.open("/mapa.html", "_blank");
+});
+
+// Inicialização
+atualizarModo();
