@@ -7,9 +7,7 @@
     { "src": "script.js",    "use": "@vercel/static" }
   ],
   "routes": [
-    // 1) tudo em /api/* vai para as suas functions
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
-    // 2) tudo o mais volta o index.html (SPA style)
     { "src": "/(.*)",     "dest": "/index.html" }
   ]
 }
