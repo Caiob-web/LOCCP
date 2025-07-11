@@ -118,7 +118,7 @@
           <input type="text" id="cp" name="cp" placeholder="Ex: 519" />
         </div>
 
-        <div class="form-group" id="grupo-cs">
+        <div class="form-group" id="grupo-cs" style="display:none;">
           <label for="cs">Digite o número da (CS):</label>
           <input type="text" id="cs" name="cs" placeholder="Ex: 243" />
         </div>
@@ -139,78 +139,7 @@
       Desenvolvido por Caio Henrique Faria - Baramaia Engenharia e Conhecimento - 2025
     </footer>
 
-    <!-- Script original atualizado -->
-    <script>
-      const cpInput = document.getElementById("cp");
-      const csInput = document.getElementById("cs");
-      const resultadoDiv = document.getElementById("resultado");
-      const loadingOverlay = document.getElementById("loading-overlay");
-
-      function toggleLoading(show) {
-        loadingOverlay.style.display = show ? "flex" : "none";
-      }
-
-      async function buscar(event) {
-        event.preventDefault();
-        const modo = document.querySelector('input[name="modo"]:checked').value;
-        const cp = parseInt(cpInput.value.trim(), 10);
-        const cs = parseInt(csInput.value.trim(), 10);
-
-        if (modo === "cp" && isNaN(cp)) {
-          resultadoDiv.textContent = "Por favor, preencha o número da CP.";
-          return;
-        }
-        if (modo === "cp_cs" && (isNaN(cp) || isNaN(cs))) {
-          resultadoDiv.textContent = "Por favor, preencha CP e CS com valores válidos.";
-          return;
-        }
-
-        toggleLoading(true);
-
-        const url =
-          modo === "cp_cs"
-            ? `${API_BASE}/api/poste?cp=${cp}&cs=${cs}`
-            : `${API_BASE}/api/poste?cp=${cp}`;
-        console.log("🔍 Chamando API:", url);
-
-        try {
-          const response = await fetch(url);
-          console.log("➡️ Status da resposta:", response.status);
-          if (!response.ok) {
-            resultadoDiv.textContent =
-              modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
-            return;
-          }
-
-          const item = await response.json();
-          mostrarResultado(item, modo);
-        } catch (error) {
-          resultadoDiv.textContent = "Erro ao buscar dados.";
-          console.error("❌ Erro de rede ou código:", error);
-        } finally {
-          toggleLoading(false);
-        }
-      }
-
-      function mostrarResultado(item, modo) {
-        const gps = item.coordenadas || "Coordenadas não disponíveis";
-        const linkCoordenadas = gps.includes(",")
-          ? `https://www.google.com/maps?q=${gps}`
-          : "#";
-
-        if (!item) {
-          resultadoDiv.textContent =
-            modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
-          return;
-        }
-
-        if (modo === "cp_cs") {
-          resultadoDiv.innerHTML = `
-            <p><strong>Município:</strong> ${item.municipio || "N/A"}</p>
-            <p><strong>Endereço:</strong> ${item.endereco || "N/A"}</p>
-            <p><strong>Bairro:</strong> ${item.bairro || "N/A"}</p>
-            <p><strong>ET:</strong> ${item.et || "N/A"}</p>
-            <p><strong>CS Série:</strong> ${item.cs_serie || "N/A"}</p>
-            <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
-          `;
-        } else
+    <!-- Script externo principal -->
+    <script src="/script.js"></script>
+  </body>
+</html>
