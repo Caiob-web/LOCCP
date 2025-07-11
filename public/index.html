@@ -4,104 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- 👇 Evita cache pesado do Vercel para garantir que você sempre pegue a última versão -->
+    <!-- Evita cache pesado do Vercel -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
 
-    <!-- 👇 Faz com que todos os paths relativos partam da raiz -->
+    <!-- Paths relativos partem da raiz -->
     <base href="/" />
 
     <title>LOCCP - LOCALIZADOR DE CP E CS</title>
 
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        background: #f5f5f5;
-        color: #333;
-      }
-      header {
-        background: #4caf50;
-        color: white;
-        padding: 15px;
-        text-align: center;
-        font-size: 24px;
-        font-weight: bold;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      }
-      .container {
-        max-width: 800px;
-        margin: 20px auto;
-        padding: 20px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      }
-      .form-group {
-        margin-bottom: 15px;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      input[type="text"] {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-      }
-      button {
-        padding: 10px 20px;
-        background: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-right: 10px;
-      }
-      button:hover {
-        background: #45a049;
-      }
-      #loading-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.8);
-        z-index: 1000;
-        justify-content: center;
-        align-items: center;
-      }
-      #loading-spinner {
-        width: 80px;
-        height: 80px;
-        border: 10px solid #ccc;
-        border-top: 10px solid #4caf50;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      footer {
-        text-align: center;
-        padding: 10px;
-        background: #333;
-        color: white;
-        margin-top: 20px;
-      }
+      body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; color: #333; }
+      header { background: #4caf50; color: white; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+      .container { max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+      .form-group { margin-bottom: 15px; }
+      label { display: block; margin-bottom: 5px; font-weight: bold; }
+      input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+      button { padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; }
+      button:hover { background: #45a049; }
+      #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 1000; justify-content: center; align-items: center; }
+      #loading-spinner { width: 80px; height: 80px; border: 10px solid #ccc; border-top: 10px solid #4caf50; border-radius: 50%; animation: spin 1s linear infinite; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      footer { text-align: center; padding: 10px; background: #333; color: white; margin-top: 20px; }
     </style>
 
     <!-- Variável global com a base da API -->
     <script>
       const API_BASE = window.location.origin;
-      console.log("API_BASE definida como", API_BASE);
     </script>
   </head>
   <body>
@@ -114,16 +44,16 @@
         </div>
 
         <div class="form-group" id="grupo-cp">
-          <label for="cp">Digite o número da (CP):</label>
+          <label for="cp">Digite o número da CP:</label>
           <input type="text" id="cp" name="cp" placeholder="Ex: 519" />
         </div>
 
         <div class="form-group" id="grupo-cs" style="display:none;">
-          <label for="cs">Digite o número da (CS):</label>
+          <label for="cs">Digite o número da CS:</label>
           <input type="text" id="cs" name="cs" placeholder="Ex: 243" />
         </div>
 
-        <button type="submit" id="buscarBtn">Buscar</button>
+        <button type="submit">Buscar</button>
         <button type="button" id="limparBtn">Limpar</button>
         <button type="button" id="mapaBtn">🗺️ Mapa Visual</button>
       </form>
