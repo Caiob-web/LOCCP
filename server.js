@@ -1,17 +1,15 @@
-// server.js
-// Servidor Express para desenvolvimento local e deploy em ambiente que suporte always-on
+// api/[...slug].js
+// Serverless wrapper para Vercel, sem basePath para garantir que todas as rotas sejam reconhecidas
 
-const express = require("express");
-const { Pool } = require("pg");
-const path = require("path");
-require("dotenv").config();
+const serverless = require('serverless-http');
+const express    = require('express');
+const { Pool }   = require('pg');
+require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+app.use(express.json());
 
-// ─── Configuração do Pool ────────────────────────────────────────────────
-// Usando variáveis atômicas: PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT
-// Adiciona SSL sem validação de certificado e timeouts para evitar pendências
+// ─── Configuração do Pool ──────────────────────────────────────────────────────
 const pool = new Pool({
   user:                    process.env.PGUSER,
   password:                process.env.PGPASSWORD,
@@ -19,35 +17,32 @@ const pool = new Pool({
   database:                process.env.PGDATABASE,
   port:                    parseInt(process.env.PGPORT, 10),
   ssl:                     { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,   // 5s para erro de conexão
-  idleTimeoutMillis:       10000,  // 10s para fechar conexões ociosas
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis:       10000,
 });
-console.log("✅ DB Pool initialized for local dev");
 
-// ─── Middleware ────────────────────────────────────────────────────────────
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+console.log('✅ Serverless function initialized. DB Pool created.');
 
-// ─── Health-check endpoint ─────────────────────────────────────────────────
-app.get("/api/health", async (_req, res) => {
+// ─── Rota de diagnóstico rápido ───────────────────────────────────────────────
+app.get('/api/ping', (_req, res) => {
+  res.status(200).json({ pong: true });
+});
+
+// ─── Health-check: GET /api/health ─────────────────────────────────────────────
+app.get('/api/health', async (_req, res) => {
   try {
-    await pool.query("SELECT 1");
+    await pool.query('SELECT 1');
     return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("❌ Health-check failed:", err);
+    console.error('❌ Health-check failed:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// ─── Página principal ─────────────────────────────────────────────────────
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// ─── Buscar poste por CP ou CP+CS ─────────────────────────────────────────
-app.get("/api/poste", async (req, res) => {
+// ─── Buscar um poste: GET /api/poste?cp=...&cs=... ─────────────────────────────
+app.get('/api/poste', async (req, res) => {
   const { cp, cs } = req.query;
-  console.log(`🔍 /api/poste called with`, { cp, cs });
+  console.log(`🔍 /api/poste called with cp=${cp}, cs=${cs}`);
 
   if (!cp) {
     return res.status(400).json({ erro: "Parâmetro 'cp' é obrigatório" });
@@ -64,33 +59,37 @@ app.get("/api/poste", async (req, res) => {
     console.log(`➡️ DB returned ${rows.length} row(s)`);
 
     if (rows.length === 0) {
-      return res.status(404).json({ erro: "Poste não encontrado" });
+      return res.status(404).json({ erro: 'Poste não encontrado' });
     }
     return res.status(200).json(rows[0]);
   } catch (err) {
-    console.error("❌ Query error on /api/poste:", err);
-    return res.status(500).json({ erro: "Erro interno no servidor" });
+    console.error('❌ Query error:', err);
+    return res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
-// ─── Listar todos os pontos para o mapa ────────────────────────────────────
-app.get("/api/postes", async (_req, res) => {
-  console.log("🔍 /api/postes called");
+// ─── Listar todos os postes: GET /api/postes ────────────────────────────────────
+app.get('/api/postes', async (_req, res) => {
+  console.log('🔍 /api/postes called');
   try {
     const { rows } = await pool.query(
       `SELECT cp, cs, municipio, coordenadas
        FROM localizacao_cp_cs
        WHERE coordenadas IS NOT NULL`
     );
-    console.log(`➡️ DB returned ${rows.length} pontos`);
+    console.log(`➡️ DB returned ${rows.length} ponto(s)`);
     return res.status(200).json(rows);
   } catch (err) {
-    console.error("❌ Error fetching /api/postes:", err);
-    return res.status(500).json({ erro: "Erro ao buscar coordenadas" });
+    console.error('❌ Error fetching all postes:', err);
+    return res.status(500).json({ erro: 'Erro ao buscar coordenadas' });
   }
 });
 
-// ─── Inicia servidor ───────────────────────────────────────────────────────
-app.listen(port, () => {
-  console.log(`✅ Servidor rodando em http://localhost:${port}`);
+// ─── Fallback: qualquer outra rota não é encontrada ────────────────────────────
+app.use((_req, res) => {
+  console.warn(`⚠️ 404 on ${_req.method} ${_req.originalUrl}`);
+  res.status(404).json({ erro: 'Not Found' });
 });
+
+// ─── Exporta a aplicação como Serverless Function (sem basePath) ───────────────
+module.exports = serverless(app);
