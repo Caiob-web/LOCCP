@@ -1,5 +1,5 @@
 // api/[...slug].js
-// Serverless wrapper para Vercel, com timeout e roteamento correto
+// Serverless wrapper para Vercel, agora usando DATABASE_URL para Neon DB
 
 const serverless = require("serverless-http");
 const express    = require("express");
@@ -9,33 +9,23 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 
-// Configuração do pool com SSL e timeout de conexão
+// Pool configurado via connectionString (inclui sslmode e channel_binding)
 const pool = new Pool({
-  user:                    process.env.PGUSER,
-  password:                process.env.PGPASSWORD,
-  host:                    process.env.PGHOST,
-  database:                process.env.PGDATABASE,
-  port:                    parseInt(process.env.PGPORT, 10),
+  connectionString: process.env.DATABASE_URL,
   ssl:                     { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,  // 5s para falhar se não conectar
-  idleTimeoutMillis:       10000, // 10s antes de fechar conexões ociosas
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis:       10000,
 });
 
-console.log("✅ Serverless function loaded. DB pool:", {
-  user: process.env.PGUSER,
-  host: process.env.PGHOST,
-  database: process.env.PGDATABASE,
-  port: process.env.PGPORT,
-  ssl: true,
-});
+console.log("✅ Serverless function initialized. Using DB URL:", process.env.DATABASE_URL);
 
-// Health‑check: GET /api/health
+// Health-check: GET /api/health
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
     return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error("❌ Health‑check failed:", err);
+    console.error("❌ Health-check failed:", err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -70,7 +60,7 @@ app.get("/poste", async (req, res) => {
 });
 
 // Listar todos os postes: GET /api/postes
-app.get("/postes", async (req, res) => {
+app.get("/postes", async (_req, res) => {
   console.log("🔍 /api/postes called");
   try {
     const { rows } = await pool.query(
@@ -86,11 +76,10 @@ app.get("/postes", async (req, res) => {
   }
 });
 
-// Se nenhuma rota bateu, retorna 404 JSON
+// Rota fallback para 404 JSON
 app.use((req, res) => {
-  console.warn(`⚠️ 404 on ${req.method} ${req.url}`);
+  console.warn(`⚠️ 404 on ${req.method} ${req.originalUrl}`);
   res.status(404).json({ erro: "Not Found" });
 });
 
-// Exporta o handler, removendo automaticamente o prefixo '/api'
 module.exports = serverless(app, { basePath: "/api" });
