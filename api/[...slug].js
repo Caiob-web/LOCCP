@@ -1,5 +1,6 @@
 // api/[...slug].js
-// Serverless wrapper para Vercel, com rota de ping e ajustes para evitar 504
+// Serverless Functions para Vercel
+// Usa variáveis atômicas do Neon para conexão (PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT)
 
 const serverless = require('serverless-http');
 const express    = require('express');
@@ -10,8 +11,7 @@ const app = express();
 app.use(express.json());
 
 // ─── Configuração do Pool ──────────────────────────────────────────────────────
-// Usa variáveis atômicas do Neon (PGUSER, PGPASSWORD, PGHOST, PGDATABASE, PGPORT)
-// SSL sem validação de certificado e timeouts para evitar pendências
+// Timeouts para evitar pendências e SSL sem validação de certificado
 const pool = new Pool({
   user:                    process.env.PGUSER,
   password:                process.env.PGPASSWORD,
@@ -19,19 +19,18 @@ const pool = new Pool({
   database:                process.env.PGDATABASE,
   port:                    parseInt(process.env.PGPORT, 10),
   ssl:                     { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,   // 5s para falhar se não conectar
-  idleTimeoutMillis:       10000,  // 10s para fechar conexões ociosas
+  connectionTimeoutMillis: 5000,   // falha em 5s se não conectar
+  idleTimeoutMillis:       10000,  // desconecta após 10s ocioso
 });
 
-console.log('✅ Serverless function initialized. DB Pool created.');
+console.log('✅ Serverless function initialized.');
 
 // ─── Rota de diagnóstico rápido ───────────────────────────────────────────────
-// Testa se a função está respondendo sem envolver banco de dados
 app.get('/ping', (_req, res) => {
   res.status(200).json({ pong: true });
 });
 
-// ─── Health-check: GET /api/health ─────────────────────────────────────────────
+// ─── Health-check: GET /health ────────────────────────────────────────────────
 app.get('/health', async (_req, res) => {
   try {
     await pool.query('SELECT 1');
@@ -42,10 +41,10 @@ app.get('/health', async (_req, res) => {
   }
 });
 
-// ─── Buscar um poste: GET /api/poste?cp=...&cs=... ─────────────────────────────
+// ─── Buscar um poste: GET /poste?cp=...&cs=... ─────────────────────────────────
 app.get('/poste', async (req, res) => {
   const { cp, cs } = req.query;
-  console.log(`🔍 /api/poste called with cp=${cp}, cs=${cs}`);
+  console.log(`🔍 Fetching poste: cp=${cp}, cs=${cs}`);
 
   if (!cp) {
     return res.status(400).json({ erro: "Parâmetro 'cp' é obrigatório" });
@@ -53,8 +52,8 @@ app.get('/poste', async (req, res) => {
 
   const isCs = Boolean(cs);
   const sql = isCs
-    ? `SELECT * FROM localizacao_cp_cs WHERE cp = $1 AND cs = $2 LIMIT 1`
-    : `SELECT * FROM localizacao_cp WHERE cp = $1 LIMIT 1`;
+    ? `SELECT * FROM localizacao_cp_cs WHERE cp=$1 AND cs=$2 LIMIT 1`
+    : `SELECT * FROM localizacao_cp WHERE cp=$1 LIMIT 1`;
   const params = isCs ? [cp, cs] : [cp];
 
   try {
@@ -71,26 +70,26 @@ app.get('/poste', async (req, res) => {
   }
 });
 
-// ─── Listar todos os postes: GET /api/postes ────────────────────────────────────
+// ─── Listar todos os postes: GET /postes ───────────────────────────────────────
 app.get('/postes', async (_req, res) => {
-  console.log('🔍 /api/postes called');
+  console.log('🔍 Fetching all postes');
   try {
     const { rows } = await pool.query(
       `SELECT cp, cs, municipio, coordenadas
        FROM localizacao_cp_cs
        WHERE coordenadas IS NOT NULL`
     );
-    console.log(`➡️ DB returned ${rows.length} ponto(s)`);
+    console.log(`➡️ DB returned ${rows.length} points`);
     return res.status(200).json(rows);
   } catch (err) {
-    console.error('❌ Error fetching all postes:', err);
+    console.error('❌ Fetch all error:', err);
     return res.status(500).json({ erro: 'Erro ao buscar coordenadas' });
   }
 });
 
-// ─── Fallback para rotas não encontradas ────────────────────────────────────────
+// ─── Fallback para rotas inexistentes ─────────────────────────────────────────
 app.use((_req, res) => {
-  console.warn(`⚠️ 404 on ${_req.method} ${_req.originalUrl}`);
+  console.warn(`⚠️ 404 Not Found: ${_req.method} ${_req.originalUrl}`);
   res.status(404).json({ erro: 'Not Found' });
 });
 
