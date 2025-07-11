@@ -3,8 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 👇 Evita cache pesado do Vercel para garantir que você sempre pegue a última versão -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- 👇 Faz com que todos os paths relativos partam da raiz -->
+    <base href="/" />
+
     <title>LOCCP - LOCALIZADOR DE CP E CS</title>
+
     <style>
+      /* ... seu CSS inline original continua exatamente igual ... */
       body {
         font-family: Arial, sans-serif;
         margin: 0;
@@ -91,6 +102,12 @@
         margin-top: 20px;
       }
     </style>
+
+    <!-- 👇 Variável global com a base da API (ajuda a evitar caminhos relativos que às vezes quebram) -->
+    <script>
+      const API_BASE = window.location.origin;
+      console.log("API_BASE definida como", API_BASE);
+    </script>
   </head>
   <body>
     <header>LOCCP - Sistema</header>
@@ -134,6 +151,9 @@
       - 2025
     </footer>
 
+    <!-- 👇 Seu script original, mas com dois pequenos ajustes:
+         1) Log no início do fetch
+         2) Uso de API_BASE para o URL absoluto -->
     <script>
       const cpInput = document.getElementById("cp");
       const csInput = document.getElementById("cs");
@@ -146,7 +166,9 @@
 
       async function buscar(event) {
         event.preventDefault();
-        const modo = document.querySelector('input[name="modo"]:checked').value;
+        const modo = document.querySelector(
+          'input[name="modo"]:checked'
+        ).value;
         const cp = parseInt(cpInput.value.trim(), 10);
         const cs = parseInt(csInput.value.trim(), 10);
 
@@ -162,13 +184,17 @@
 
         toggleLoading(true);
 
+        // 👇 Agora usando URL absoluto e logando para debug
+        const url =
+          modo === "cp_cs"
+            ? `${API_BASE}/api/poste?cp=${cp}&cs=${cs}`
+            : `${API_BASE}/api/poste?cp=${cp}`;
+        console.log("🔍 Chamando API:", url);
+
         try {
-          const url =
-            modo === "cp_cs"
-              ? `/api/poste?cp=${cp}&cs=${cs}`
-              : `/api/poste?cp=${cp}`;
           const response = await fetch(url);
 
+          console.log("➡️ Status da resposta:", response.status);
           if (!response.ok) {
             resultadoDiv.textContent =
               modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
@@ -179,7 +205,7 @@
           mostrarResultado(item, modo);
         } catch (error) {
           resultadoDiv.textContent = "Erro ao buscar dados.";
-          console.error(error);
+          console.error("❌ Erro de rede ou código:", error);
         } finally {
           toggleLoading(false);
         }
@@ -216,7 +242,9 @@
       }
 
       function atualizarCamposVisiveis() {
-        const modo = document.querySelector('input[name="modo"]:checked').value;
+        const modo = document.querySelector(
+          'input[name="modo"]:checked'
+        ).value;
         document.getElementById("grupo-cp").style.display = "block";
         document.getElementById("grupo-cs").style.display =
           modo === "cp_cs" ? "block" : "none";
@@ -228,12 +256,16 @@
         resultadoDiv.textContent = "";
       });
       document.getElementById("buscaForm").addEventListener("submit", buscar);
-      document.getElementById("mapaBtn").addEventListener("click", () => {
-        window.open("/mapa.html", "_blank");
-      });
-      document.querySelectorAll('input[name="modo"]').forEach((radio) => {
-        radio.addEventListener("change", atualizarCamposVisiveis);
-      });
+      document
+        .getElementById("mapaBtn")
+        .addEventListener("click", () => {
+          window.open("/mapa.html", "_blank");
+        });
+      document
+        .querySelectorAll('input[name="modo"]')
+        .forEach((radio) => {
+          radio.addEventListener("change", atualizarCamposVisiveis);
+        });
       window.addEventListener("DOMContentLoaded", atualizarCamposVisiveis);
     </script>
   </body>
