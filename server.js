@@ -6,7 +6,7 @@ const path = require("path");
 
 const app = express();
 
-// 1) Sirva os arquivos estáticos de /public (index.html, script.js, mapa.html, etc.)
+// 1) Sirva os estáticos de /public (index.html, script.js, mapa.html…)
 app.use(express.static(path.join(__dirname, "public")));
 
 // 2) Configure o pool do Postgres (Neon)
@@ -20,7 +20,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-// 3) Rota GET /api/poste?cp=XXX[&cs=YYY]
+// 3) GET /api/poste?cp=XXX[&cs=YYY]
 app.get("/api/poste", async (req, res) => {
   console.log("Chamou /api/poste com:", req.query);
   const { cp, cs } = req.query;
@@ -35,54 +35,60 @@ app.get("/api/poste", async (req, res) => {
   }
 
   try {
-    let queryText, params;
+    let result, row;
 
     if (csNum !== null) {
-      // busca por CP + CS na tabela localizacao_cp_cs
-      queryText = `
-        SELECT
-          cp,
-          cs,
-          cp_serie,
-          cs_serie,
-          et,
-          coordenadas
-        FROM localizacao_cp_cs
-        WHERE cp = $1 AND cs = $2
-        LIMIT 1
-      `;
-      params = [cpNum, csNum];
+      // CP + CS: juntamos a tabela de CP (para cp_serie) com a tabela de CP_CS (para cs_serie)
+      result = await pool.query(
+        `
+          SELECT
+            csTable.cp,
+            csTable.cs,
+            cpTable.cp_serie   AS cp_serie,
+            csTable.cs_serie   AS cs_serie,
+            csTable.et,
+            csTable.coordenadas
+          FROM localizacao_cp_cs AS csTable
+          JOIN localizacao_cp    AS cpTable
+            ON csTable.cp = cpTable.cp
+          WHERE csTable.cp = $1
+            AND csTable.cs = $2
+          LIMIT 1
+        `,
+        [cpNum, csNum]
+      );
     } else {
-      // busca só por CP na tabela localizacao_cp
-      queryText = `
-        SELECT
-          cp,
-          cp_serie,
-          et,
-          coordenadas
-        FROM localizacao_cp
-        WHERE cp = $1
-        LIMIT 1
-      `;
-      params = [cpNum];
+      // Somente CP: consulta direta na tabela localizacao_cp
+      result = await pool.query(
+        `
+          SELECT
+            cp,
+            cp_serie,
+            et,
+            coordenadas
+          FROM localizacao_cp
+          WHERE cp = $1
+          LIMIT 1
+        `,
+        [cpNum]
+      );
     }
 
-    const result = await pool.query(queryText, params);
     if (result.rows.length === 0) {
       return res
         .status(404)
         .send(csNum !== null ? "CP + CS não encontrado." : "CP não encontrado.");
     }
 
-    const row = result.rows[0];
-    // monta o objeto de resposta para o front-end
+    row = result.rows[0];
+    // Monte o objeto conforme o modo
     const item = {
       cp: row.cp,
       ...(csNum !== null && { cs: row.cs }),
       cp_serie: row.cp_serie,
       ...(csNum !== null && { cs_serie: row.cs_serie }),
       et: row.et,
-      coordenadas: row.coordenadas, // já vem como "lat,lon"
+      coordenadas: row.coordenadas, // já vem no formato "lat,lon"
     };
 
     return res.json(item);
