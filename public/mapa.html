@@ -66,19 +66,24 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    let singleMarker; // marcador do form de busca
+    // marcador único da busca
+    let singleMarker;
 
-    // 2) Função de busca individual (CP+CS)
-    const cpInput = document.getElementById('cpCS');
-    const csInput = document.getElementById('csCS');
-    const formCS = document.getElementById('formCS');
+    // referências ao form de busca
+    const cpInput   = document.getElementById('cpCS');
+    const csInput   = document.getElementById('csCS');
+    const formCS    = document.getElementById('formCS');
     const limparBtn = document.getElementById('limparBtnCS');
 
+    // 2) Busca individual CP+CS
     formCS.addEventListener('submit', async (e) => {
       e.preventDefault();
       const cp = cpInput.value.trim();
       const cs = csInput.value.trim();
-      if (!cp || !cs) { alert('Preencha CP e CS'); return; }
+      if (!cp || !cs) {
+        alert('Preencha CP e CS');
+        return;
+      }
 
       try {
         const resp = await fetch(`/api/poste?cp=${cp}&cs=${cs}`);
@@ -86,7 +91,7 @@
         const data = await resp.json();
         const [lat, lon] = data.coordenadas.split(',').map(Number);
 
-        if (singleMarker) { map.removeLayer(singleMarker); }
+        if (singleMarker) map.removeLayer(singleMarker);
         singleMarker = L.marker([lat, lon])
           .addTo(map)
           .bindPopup(`
@@ -108,17 +113,21 @@
     limparBtn.addEventListener('click', () => {
       cpInput.value = '';
       csInput.value = '';
-      if (singleMarker) { map.removeLayer(singleMarker); singleMarker = null; }
+      if (singleMarker) {
+        map.removeLayer(singleMarker);
+        singleMarker = null;
+      }
     });
 
-    // 3) Carrega e desenha todos os pontos (CP e CP+CS) com popup ao hover
+    // 3) Carrega e desenha todos os pontos com circleMarker menores e valida coords
     fetch('/api/postes')
       .then(r => r.json())
       .then(({ cpList, csList }) => {
         const draw = item => {
+          if (!item.coords || item.coords.length !== 2) return;  // pula inválidos
           const color = item.tipo === 'CP' ? '#0066cc' : '#cc0000';
-          const m = L.circleMarker(item.coords, {
-            radius: 6,
+          const marker = L.circleMarker(item.coords, {
+            radius: 3,        // bolinha menor
             color,
             weight: 1,
             fillOpacity: 0.8
@@ -130,9 +139,9 @@
           if (item.tipo === 'CP+CS') html += `<br/>CS Série: ${item.cs_serie}`;
           html += `<br/>ET: ${item.et}`;
 
-          m.bindPopup(html);
-          m.on('mouseover', () => m.openPopup());
-          m.on('mouseout',  () => m.closePopup());
+          marker.bindPopup(html);
+          marker.on('mouseover', () => marker.openPopup());
+          marker.on('mouseout',  () => marker.closePopup());
         };
 
         cpList.forEach(draw);
