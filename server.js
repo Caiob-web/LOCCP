@@ -6,15 +6,14 @@ const path = require("path");
 
 const app = express();
 
-// 1) Serve todos os arquivos estáticos de public/
+// 1) Serve arquivos estáticos (index.html, script.js, mapa.html, etc.) da pasta /public
 app.use(express.static(path.join(__dirname, "public")));
 
-// 2) Configura pool do Postgres (Neon)
-const connectionString =
-  process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+// 2) Configura pool do Postgres (Neon) com fallback de variável de ambiente
+const connectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 if (!connectionString) {
   console.error(
-    "ERRO: variável de ambiente DATABASE_URL ou NEON_DATABASE_URL não configurada."
+    "ERRO: variável de ambiente DATABASE_URL ou NEON_DATABASE_URL não encontrada."
   );
   process.exit(1);
 }
@@ -27,35 +26,54 @@ const pool = new Pool({
 
 // 3) Handler GET /api/poste?cp=XXX[&cs=YYY]
 app.get("/api/poste", async (req, res) => {
-  const { cp, cs } = req.query;
   console.log("Chamou /api/poste com:", req.query);
+  const { cp, cs } = req.query;
 
+  // valida CP
   if (!cp) {
-    return res.status(400).json({ error: "cp é obrigatório" });
+    return res.status(400).json({ error: "Parâmetro 'cp' é obrigatório." });
   }
   const cpNum = parseInt(cp, 10);
   const csNum = cs !== undefined ? parseInt(cs, 10) : null;
   if (isNaN(cpNum) || (cs !== undefined && isNaN(csNum))) {
-    return res.status(400).json({ error: "CP e CS inválidos" });
+    return res
+      .status(400)
+      .json({ error: "CP e CS devem ser números válidos." });
   }
 
   try {
     let queryText, params;
     if (csNum !== null) {
-      // Busca por CP + CS
+      // busca por CP + CS
       queryText = `
-        SELECT cp, cs, municipio, endereco, bairro, et,
-               cp_serie, cs_serie, latitude, longitude
+        SELECT
+          cp,
+          cs,
+          municipio,
+          endereco,
+          bairro,
+          et,
+          cp_serie,
+          cs_serie,
+          latitude,
+          longitude
         FROM dados_poste
         WHERE cp = $1 AND cs = $2
         LIMIT 1
       `;
       params = [cpNum, csNum];
     } else {
-      // Busca só por CP
+      // busca só por CP
       queryText = `
-        SELECT cp, municipio, endereco, bairro, et,
-               cp_serie, latitude, longitude
+        SELECT
+          cp,
+          municipio,
+          endereco,
+          bairro,
+          et,
+          cp_serie,
+          latitude,
+          longitude
         FROM dados_poste
         WHERE cp = $1
         LIMIT 1
@@ -91,12 +109,15 @@ app.get("/api/poste", async (req, res) => {
     return res.json(item);
   } catch (err) {
     console.error("Erro na consulta ao banco:", err);
-    return res.status(500).json({ error: "Erro interno no servidor." });
+    // retorna mensagem real do erro para facilitar diagnóstico
+    return res
+      .status(500)
+      .json({ error: err.message || "Erro interno no servidor." });
   }
 });
 
 // 4) Inicia o servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
