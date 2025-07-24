@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LOCCP - LOCALIZADOR DE CP E CS</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f5f5;
+        color: #333;
+      }
+      header {
+        background: #4caf50;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-size: 24px;
+        font-weight: bold;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      button {
+        padding: 10px 20px;
+        background: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      button:hover {
+        background: #45a049;
+      }
+      #loading-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+      #loading-spinner {
+        width: 80px;
+        height: 80px;
+        border: 10px solid #ccc;
+        border-top: 10px solid #4caf50;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      footer {
+        text-align: center;
+        padding: 10px;
+        background: #333;
+        color: white;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>LOCCP - Sistema</header>
+    <div class="container">
+      <form id="buscaForm">
+        <div class="form-group">
+          <label
+            ><input type="radio" name="modo" value="cp" checked /> Buscar por
+            CP</label
+          >
+          <label
+            ><input type="radio" name="modo" value="cp_cs" /> Buscar por CP +
+            CS</label
+          >
+        </div>
+
+        <div class="form-group" id="grupo-cp">
+          <label for="cp">Digite o número da (CP):</label>
+          <input type="text" id="cp" name="cp" placeholder="Ex: 519" />
+        </div>
+
+        <div class="form-group" id="grupo-cs">
+          <label for="cs">Digite o número da (CS):</label>
+          <input type="text" id="cs" name="cs" placeholder="Ex: 243" />
+        </div>
+
+        <button type="submit" id="buscarBtn">Buscar</button>
+        <button type="button" id="limparBtn">Limpar</button>
+        <button type="button" id="mapaBtn">🗺️ Mapa Visual</button>
+      </form>
+
+      <div id="resultado"></div>
+    </div>
+
+    <div id="loading-overlay">
+      <div id="loading-spinner"></div>
+    </div>
+
+    <footer>
+      Desenvolvido por Caio Henrique Faria - Baramaia Engenharia e Conhecimento
+      - 2025
+    </footer>
+
+    <script>
+      const cpInput = document.getElementById("cp");
+      const csInput = document.getElementById("cs");
+      const resultadoDiv = document.getElementById("resultado");
+      const loadingOverlay = document.getElementById("loading-overlay");
+
+      function toggleLoading(show) {
+        loadingOverlay.style.display = show ? "flex" : "none";
+      }
+
+      async function buscar(event) {
+        event.preventDefault();
+        const modo = document.querySelector('input[name="modo"]:checked').value;
+        const cp = parseInt(cpInput.value.trim(), 10);
+        const cs = parseInt(csInput.value.trim(), 10);
+
+        if (modo === "cp" && isNaN(cp)) {
+          resultadoDiv.textContent = "Por favor, preencha o número da CP.";
+          return;
+        }
+        if (modo === "cp_cs" && (isNaN(cp) || isNaN(cs))) {
+          resultadoDiv.textContent =
+            "Por favor, preencha CP e CS com valores válidos.";
+          return;
+        }
+
+        toggleLoading(true);
+
+        try {
+          const url =
+            modo === "cp_cs"
+              ? `/api/poste?cp=${cp}&cs=${cs}`
+              : `/api/poste?cp=${cp}`;
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            resultadoDiv.textContent =
+              modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
+            return;
+          }
+
+          const item = await response.json();
+          mostrarResultado(item, modo);
+        } catch (error) {
+          resultadoDiv.textContent = "Erro ao buscar dados.";
+          console.error(error);
+        } finally {
+          toggleLoading(false);
+        }
+      }
+
+      function mostrarResultado(item, modo) {
+        const gps = item.coordenadas || "Coordenadas não disponíveis";
+        const linkCoordenadas = gps.includes(",")
+          ? `https://www.google.com/maps?q=${gps}`
+          : "#";
+
+        if (!item) {
+          resultadoDiv.textContent =
+            modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
+          return;
+        }
+
+        if (modo === "cp_cs") {
+          resultadoDiv.innerHTML = `
+            <p><strong>Município:</strong> ${item.municipio || "N/A"}</p>
+            <p><strong>Endereço:</strong> ${item.endereco || "N/A"}</p>
+            <p><strong>Bairro:</strong> ${item.bairro || "N/A"}</p>
+            <p><strong>ET:</strong> ${item.et || "N/A"}</p>
+            <p><strong>CS Série:</strong> ${item.cs_serie || "N/A"}</p>
+            <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
+          `;
+        } else {
+          resultadoDiv.innerHTML = `
+            <p><strong>CP Série:</strong> ${item.cp_serie || "N/A"}</p>
+            <p><strong>ET:</strong> ${item.et || "N/A"}</p>
+            <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
+          `;
+        }
+      }
+
+      function atualizarCamposVisiveis() {
+        const modo = document.querySelector('input[name="modo"]:checked').value;
+        document.getElementById("grupo-cp").style.display = "block";
+        document.getElementById("grupo-cs").style.display =
+          modo === "cp_cs" ? "block" : "none";
+      }
+
+      document.getElementById("limparBtn").addEventListener("click", () => {
+        cpInput.value = "";
+        csInput.value = "";
+        resultadoDiv.textContent = "";
+      });
+      document.getElementById("buscaForm").addEventListener("submit", buscar);
+      document.getElementById("mapaBtn").addEventListener("click", () => {
+        window.open("/mapa.html", "_blank");
+      });
+      document.querySelectorAll('input[name="modo"]').forEach((radio) => {
+        radio.addEventListener("change", atualizarCamposVisiveis);
+      });
+      window.addEventListener("DOMContentLoaded", atualizarCamposVisiveis);
+    </script>
+  </body>
+</html>
