@@ -112,7 +112,7 @@
           <input type="text" id="cp" name="cp" placeholder="Ex: 519" />
         </div>
 
-        <div class="form-group" id="grupo-cs">
+        <div class="form-group" id="grupo-cs" style="display: none;">
           <label for="cs">Digite o número da (CS):</label>
           <input type="text" id="cs" name="cs" placeholder="Ex: 243" />
         </div>
@@ -186,19 +186,20 @@
       }
 
       function mostrarResultado(item, modo) {
-        const gps = item.coordenadas || "Coordenadas não disponíveis";
-        const linkCoordenadas = gps.includes(",")
-          ? `https://www.google.com/maps?q=${gps}`
-          : "#";
-
         if (!item) {
           resultadoDiv.textContent =
             modo === "cp" ? "CP não encontrado." : "CP + CS não encontrado.";
           return;
         }
+        const gps = item.coordenadas || "Coordenadas não disponíveis";
+        const linkCoordenadas = gps.includes(",")
+          ? `https://www.google.com/maps?q=${gps}`
+          : "#";
 
         if (modo === "cp_cs") {
           resultadoDiv.innerHTML = `
+            <p><strong>CP:</strong> ${item.cp}</p>
+            <p><strong>CS:</strong> ${item.cs}</p>
             <p><strong>Município:</strong> ${item.municipio || "N/A"}</p>
             <p><strong>Endereço:</strong> ${item.endereco || "N/A"}</p>
             <p><strong>Bairro:</strong> ${item.bairro || "N/A"}</p>
@@ -208,6 +209,7 @@
           `;
         } else {
           resultadoDiv.innerHTML = `
+            <p><strong>CP:</strong> ${item.cp}</p>
             <p><strong>CP Série:</strong> ${item.cp_serie || "N/A"}</p>
             <p><strong>ET:</strong> ${item.et || "N/A"}</p>
             <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
