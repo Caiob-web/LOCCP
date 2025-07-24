@@ -3,10 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Mapa Visual – CP / CS</title>
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
@@ -17,7 +14,7 @@
   />
   <style>
     /* mapa ocupa toda a tela */
-    #map { height: 100vh; }
+    #map { height: 100vh; margin: 0; padding: 0; }
 
     /* painel de busca fixo no canto superior direito */
     #controlPanel {
@@ -75,34 +72,30 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // adiciona cluster group com carregamento em chunks para performance
+    // 2) Configura o cluster para carregamento em chunks e menos eventos
     const markersCluster = L.markerClusterGroup({
       chunkedLoading: true,
-      chunkProgress: (processed, total, elapsed) => {
-        // opcional: podemos mostrar um spinner ou log no console
-        // console.log(`Processado ${processed} de ${total} marcadores`);
-      }
+      chunkInterval: 100,        // processa em pedaços de 100ms
+      chunkDelay: 50,            // pausa 50ms entre chunks
+      removeOutsideVisibleBounds: true,
+      maxClusterRadius: 50,      // clusters maiores, menos individuais
+      showCoverageOnHover: false,
+      spiderfyOnMaxZoom: false
     });
     map.addLayer(markersCluster);
 
-    // marcador único da busca
+    // 3) Marcador único da busca CP+CS
     let singleMarker;
 
-    // referências ao form de busca
     const cpInput   = document.getElementById('cpCS');
     const csInput   = document.getElementById('csCS');
     const formCS    = document.getElementById('formCS');
     const limparBtn = document.getElementById('limparBtnCS');
 
-    // 2) Busca individual CP+CS
-    formCS.addEventListener('submit', async (e) => {
+    formCS.addEventListener('submit', async e => {
       e.preventDefault();
-      const cp = cpInput.value.trim();
-      const cs = csInput.value.trim();
-      if (!cp || !cs) {
-        alert('Preencha CP e CS');
-        return;
-      }
+      const cp = cpInput.value.trim(), cs = csInput.value.trim();
+      if (!cp || !cs) { alert('Preencha CP e CS'); return; }
 
       try {
         const resp = await fetch(`/api/poste?cp=${cp}&cs=${cs}`);
@@ -111,18 +104,23 @@
         const [lat, lon] = data.coordenadas.split(',').map(Number);
 
         if (singleMarker) map.removeLayer(singleMarker);
-        singleMarker = L.marker([lat, lon])
-          .addTo(map)
-          .bindPopup(`
-            <p><strong>CP:</strong> ${data.cp}</p>
-            <p><strong>CS:</strong> ${data.cs}</p>
-            <p><strong>CP Série:</strong> ${data.cp_serie}</p>
-            <p><strong>CS Série:</strong> ${data.cs_serie}</p>
-            <p><strong>ET:</strong> ${data.et}</p>
-          `)
-          .openPopup();
-        map.setView([lat, lon], 15);
+        singleMarker = L.circleMarker([lat, lon], {
+          radius: 5,
+          color: '#ff6600',
+          weight: 1,
+          fillOpacity: 1
+        })
+        .addTo(map)
+        .bindPopup(`
+          <p><strong>CP:</strong> ${data.cp}</p>
+          <p><strong>CS:</strong> ${data.cs}</p>
+          <p><strong>CP Série:</strong> ${data.cp_serie}</p>
+          <p><strong>CS Série:</strong> ${data.cs_serie}</p>
+          <p><strong>ET:</strong> ${data.et}</p>
+        `)
+        .openPopup();
 
+        map.setView([lat, lon], 15);
       } catch (err) {
         console.error('Erro ao buscar CP+CS:', err);
         alert(err.message);
@@ -132,13 +130,10 @@
     limparBtn.addEventListener('click', () => {
       cpInput.value = '';
       csInput.value = '';
-      if (singleMarker) {
-        map.removeLayer(singleMarker);
-        singleMarker = null;
-      }
+      if (singleMarker) map.removeLayer(singleMarker);
     });
 
-    // 3) Carrega e desenha todos os pontos com cluster e marcadores pequenos
+    // 4) Carrega e plota todos os CP e CP+CS em clusters leves
     fetch('/api/postes')
       .then(r => r.json())
       .then(({ cpList, csList }) => {
@@ -149,24 +144,24 @@
             radius: 3,
             color,
             weight: 1,
-            fillOpacity: 0.8
+            fillOpacity: 0.7,
+            renderer: L.canvas()   // força renderização em canvas
           });
           let html = `<strong>${item.tipo}</strong><br/>CP: ${item.cp}`;
           if (item.tipo === 'CP+CS') html += `<br/>CS: ${item.cs}`;
           html += `<br/>CP Série: ${item.cp_serie || 'N/A'}`;
           if (item.tipo === 'CP+CS') html += `<br/>CS Série: ${item.cs_serie}`;
           html += `<br/>ET: ${item.et}`;
+
           m.bindPopup(html);
-          m.on('mouseover', () => m.openPopup());
-          m.on('mouseout',  () => m.closePopup());
           markersCluster.addLayer(m);
         };
+
         cpList.forEach(draw);
         csList.forEach(draw);
       })
       .catch(err => {
-        console.error('Erro ao carregar todos os postes:', err);
-        alert('Não foi possível carregar os pontos no mapa.');
+        console.error('Erro ao carregar postes:', err);
       });
   </script>
 </body>
