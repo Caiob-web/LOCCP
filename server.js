@@ -98,17 +98,35 @@ app.get("/api/poste", async (req, res) => {
   }
 });
 
-// 4) GET /api/postes → retorna listas de todos os CP e todos os CP+CS
+// 4) GET /api/postes → retorna listas de todos os CP e todos os CP+CS,
+//    opcionalmente filtrando apenas pelos que estão dentro de uma bounding box
 app.get("/api/postes", async (req, res) => {
   try {
-    const cpRs = await pool.query(`
+    const { minLat, minLon, maxLat, maxLon } = req.query;
+    let cpQuery = `
       SELECT cp, cp_serie, et, coordenadas
       FROM localizacao_cp
-    `);
-    const csRs = await pool.query(`
+    `;
+    let csQuery = `
       SELECT cp, cs, cs_serie, et, coordenadas
       FROM localizacao_cp_cs
-    `);
+    `;
+    const params = [];
+
+    if (minLat && minLon && maxLat && maxLon) {
+      // filtra apenas os pontos dentro da bounding box
+      const filter = `
+        WHERE
+          (split_part(coordenadas, ',', 1)::float BETWEEN $1 AND $3)
+        AND (split_part(coordenadas, ',', 2)::float BETWEEN $2 AND $4)
+      `;
+      cpQuery += filter;
+      csQuery += filter;
+      params.push(minLat, minLon, maxLat, maxLon);
+    }
+
+    const cpRs = await pool.query(cpQuery, params);
+    const csRs = await pool.query(csQuery, params);
 
     const cpList = cpRs.rows.map(r => ({
       tipo: "CP",
