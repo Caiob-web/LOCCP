@@ -8,44 +8,75 @@
     href="https://unpkg.com/leaflet/dist/leaflet.css"
   />
   <style>
-    #map { height: 100vh; }
-    .leaflet-popup-content { width: 200px; }
+    /* mapa ocupa toda a tela */
+    #map {
+      height: 100vh;
+    }
+    /* painel de busca fixo no canto superior direito */
+    #controlPanel {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      font-family: Arial, sans-serif;
+    }
+    #controlPanel input {
+      width: 120px;
+      margin-bottom: 6px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #controlPanel button {
+      padding: 6px 12px;
+      margin-right: 4px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #controlPanel button:hover {
+      background: #45a049;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Popup de busca CP/CS -->
-  <div id="popup-form" style="display:none;">
+  <div id="controlPanel">
     <form id="formCS">
-      <input id="cpCS" type="text" placeholder="CP" /><br/>
-      <input id="csCS" type="text" placeholder="CS" /><br/>
-      <button id="buscarBtnCS">Buscar</button>
-      <button id="limparBtnCS" type="button">Limpar</button>
+      <div><input id="cpCS" type="text" placeholder="CP" /></div>
+      <div><input id="csCS" type="text" placeholder="CS" /></div>
+      <div>
+        <button type="submit" id="buscarBtnCS">Buscar</button>
+        <button type="button" id="limparBtnCS">Limpar</button>
+      </div>
     </form>
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // inicializa o mapa
+    // 1) Inicializa o mapa
     const map = L.map('map').setView([-23.5, -46.6], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // abre o popup com o form
-    const popup = L.popup()
-      .setLatLng(map.getCenter())
-      .setContent(document.getElementById('popup-form'))
-      .openOn(map);
-
-    // pega botões e inputs
+    // referências aos inputs e botões
     const cpInput = document.getElementById('cpCS');
     const csInput = document.getElementById('csCS');
-    const buscarBtn = document.getElementById('buscarBtnCS');
+    const formCS = document.getElementById('formCS');
     const limparBtn = document.getElementById('limparBtnCS');
 
-    buscarBtn.addEventListener('click', async (e) => {
+    let marker; // para armazenar o marcador criado
+
+    // 2) Ao submeter o form, busca na API e adiciona o marcador
+    formCS.addEventListener('submit', async (e) => {
       e.preventDefault();
       const cp = cpInput.value.trim();
       const cs = csInput.value.trim();
@@ -56,16 +87,20 @@
       }
 
       try {
-        // *aqui* vamos buscar na API, não no HTML!
         const resp = await fetch(`/api/poste?cp=${cp}&cs=${cs}`);
         if (!resp.ok) {
           throw new Error(await resp.text());
         }
-        const data = await resp.json();  // agora sim JSON
+        const data = await resp.json();
         const [lat, lon] = data.coordenadas.split(',').map(Number);
 
-        // adiciona o marcador e centraliza
-        L.marker([lat, lon])
+        // remove marcador anterior, se existir
+        if (marker) {
+          map.removeLayer(marker);
+        }
+
+        // adiciona o novo marcador e abre o popup
+        marker = L.marker([lat, lon])
           .addTo(map)
           .bindPopup(`
             <p><strong>CP:</strong> ${data.cp}</p>
@@ -76,6 +111,7 @@
           `)
           .openPopup();
 
+        // centraliza e dá zoom
         map.setView([lat, lon], 15);
       } catch (err) {
         console.error('Erro ao carregar postes:', err);
@@ -83,9 +119,14 @@
       }
     });
 
+    // 3) Limpa os campos
     limparBtn.addEventListener('click', () => {
       cpInput.value = '';
       csInput.value = '';
+      if (marker) {
+        map.removeLayer(marker);
+        marker = null;
+      }
     });
   </script>
 </body>
