@@ -9,9 +9,8 @@
   />
   <style>
     /* mapa ocupa toda a tela */
-    #map {
-      height: 100vh;
-    }
+    #map { height: 100vh; }
+
     /* painel de busca fixo no canto superior direito */
     #controlPanel {
       position: absolute;
@@ -67,40 +66,28 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // referências aos inputs e botões
+    let singleMarker; // marcador do form de busca
+
+    // 2) Função de busca individual (CP+CS)
     const cpInput = document.getElementById('cpCS');
     const csInput = document.getElementById('csCS');
     const formCS = document.getElementById('formCS');
     const limparBtn = document.getElementById('limparBtnCS');
 
-    let marker; // para armazenar o marcador criado
-
-    // 2) Ao submeter o form, busca na API e adiciona o marcador
     formCS.addEventListener('submit', async (e) => {
       e.preventDefault();
       const cp = cpInput.value.trim();
       const cs = csInput.value.trim();
-
-      if (!cp || !cs) {
-        alert('Preencha CP e CS');
-        return;
-      }
+      if (!cp || !cs) { alert('Preencha CP e CS'); return; }
 
       try {
         const resp = await fetch(`/api/poste?cp=${cp}&cs=${cs}`);
-        if (!resp.ok) {
-          throw new Error(await resp.text());
-        }
+        if (!resp.ok) throw new Error(await resp.text());
         const data = await resp.json();
         const [lat, lon] = data.coordenadas.split(',').map(Number);
 
-        // remove marcador anterior, se existir
-        if (marker) {
-          map.removeLayer(marker);
-        }
-
-        // adiciona o novo marcador e abre o popup
-        marker = L.marker([lat, lon])
+        if (singleMarker) { map.removeLayer(singleMarker); }
+        singleMarker = L.marker([lat, lon])
           .addTo(map)
           .bindPopup(`
             <p><strong>CP:</strong> ${data.cp}</p>
@@ -110,24 +97,51 @@
             <p><strong>ET:</strong> ${data.et}</p>
           `)
           .openPopup();
-
-        // centraliza e dá zoom
         map.setView([lat, lon], 15);
+
       } catch (err) {
-        console.error('Erro ao carregar postes:', err);
+        console.error('Erro ao buscar CP+CS:', err);
         alert(err.message);
       }
     });
 
-    // 3) Limpa os campos
     limparBtn.addEventListener('click', () => {
       cpInput.value = '';
       csInput.value = '';
-      if (marker) {
-        map.removeLayer(marker);
-        marker = null;
-      }
+      if (singleMarker) { map.removeLayer(singleMarker); singleMarker = null; }
     });
+
+    // 3) Carrega e desenha todos os pontos (CP e CP+CS) com popup ao hover
+    fetch('/api/postes')
+      .then(r => r.json())
+      .then(({ cpList, csList }) => {
+        const draw = item => {
+          const color = item.tipo === 'CP' ? '#0066cc' : '#cc0000';
+          const m = L.circleMarker(item.coords, {
+            radius: 6,
+            color,
+            weight: 1,
+            fillOpacity: 0.8
+          }).addTo(map);
+
+          let html = `<strong>${item.tipo}</strong><br/>CP: ${item.cp}`;
+          if (item.tipo === 'CP+CS') html += `<br/>CS: ${item.cs}`;
+          html += `<br/>CP Série: ${item.cp_serie || 'N/A'}`;
+          if (item.tipo === 'CP+CS') html += `<br/>CS Série: ${item.cs_serie}`;
+          html += `<br/>ET: ${item.et}`;
+
+          m.bindPopup(html);
+          m.on('mouseover', () => m.openPopup());
+          m.on('mouseout',  () => m.closePopup());
+        };
+
+        cpList.forEach(draw);
+        csList.forEach(draw);
+      })
+      .catch(err => {
+        console.error('Erro ao carregar todos os postes:', err);
+        alert('Não foi possível carregar os pontos no mapa.');
+      });
   </script>
 </body>
 </html>
