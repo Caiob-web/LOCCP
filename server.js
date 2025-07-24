@@ -99,7 +99,42 @@ app.get("/api/poste", async (req, res) => {
       .json({ error: err.message || "Erro interno no servidor." });
   }
 });
+// GET /api/postes → retorna todas as CP e todas as CP+CS
+app.get("/api/postes", async (req, res) => {
+  try {
+    // 1) todas as CPs
+    const cpRs = await pool.query(`
+      SELECT cp, cp_serie, et, coordenadas
+      FROM localizacao_cp
+    `);
+    // 2) todas as CP+CS
+    const csRs = await pool.query(`
+      SELECT cp, cs, cs_serie, et, coordenadas
+      FROM localizacao_cp_cs
+    `);
 
+    const cpList = cpRs.rows.map(r => ({
+      tipo: "CP",
+      cp: r.cp,
+      cp_serie: r.cp_serie,
+      et: r.et,
+      coords: r.coordenadas.split(",").map(Number)
+    }));
+    const csList = csRs.rows.map(r => ({
+      tipo: "CP+CS",
+      cp: r.cp,
+      cs: r.cs,
+      cs_serie: r.cs_serie,
+      et: r.et,
+      coords: r.coordenadas.split(",").map(Number)
+    }));
+
+    res.json({ cpList, csList });
+  } catch (err) {
+    console.error("Erro em /api/postes:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 // 4) Inicia o servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
