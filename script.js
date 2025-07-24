@@ -21,9 +21,11 @@ async function buscar(event) {
   toggleLoading(true);
 
   try {
-    // Monta URL conforme o modo
+    // **URL corrigida para apontar ao handler em /api/poste**
     const url =
-      modo === "cp_cs" ? `/api/poste?cp=${cp}&cs=${cs}` : `/api/poste?cp=${cp}`;
+      modo === "cp_cs"
+        ? `/api/poste?cp=${cp}&cs=${cs}`
+        : `/api/poste?cp=${cp}`;
     const response = await fetch(url);
 
     if (!response.ok) {
