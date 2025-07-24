@@ -6,75 +6,61 @@ const path = require("path");
 
 const app = express();
 
-// 1) Serve arquivos estáticos (index.html, script.js, mapa.html, etc.) da pasta /public
+// 1) Sirva os arquivos estáticos de /public (index.html, script.js, mapa.html, etc.)
 app.use(express.static(path.join(__dirname, "public")));
 
-// 2) Configura pool do Postgres (Neon) com fallback de variável de ambiente
+// 2) Configure o pool do Postgres (Neon)
 const connectionString = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
 if (!connectionString) {
-  console.error(
-    "ERRO: variável de ambiente DATABASE_URL ou NEON_DATABASE_URL não encontrada."
-  );
+  console.error("ERRO: defina DATABASE_URL ou NEON_DATABASE_URL no Vercel.");
   process.exit(1);
 }
 const pool = new Pool({
   connectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: { rejectUnauthorized: false },
 });
 
-// 3) Handler GET /api/poste?cp=XXX[&cs=YYY]
+// 3) Rota GET /api/poste?cp=XXX[&cs=YYY]
 app.get("/api/poste", async (req, res) => {
   console.log("Chamou /api/poste com:", req.query);
   const { cp, cs } = req.query;
 
-  // valida CP
   if (!cp) {
     return res.status(400).json({ error: "Parâmetro 'cp' é obrigatório." });
   }
   const cpNum = parseInt(cp, 10);
   const csNum = cs !== undefined ? parseInt(cs, 10) : null;
   if (isNaN(cpNum) || (cs !== undefined && isNaN(csNum))) {
-    return res
-      .status(400)
-      .json({ error: "CP e CS devem ser números válidos." });
+    return res.status(400).json({ error: "CP e CS devem ser números válidos." });
   }
 
   try {
     let queryText, params;
+
     if (csNum !== null) {
-      // busca por CP + CS
+      // busca por CP + CS na tabela localizacao_cp_cs
       queryText = `
         SELECT
           cp,
           cs,
-          municipio,
-          endereco,
-          bairro,
-          et,
           cp_serie,
           cs_serie,
-          latitude,
-          longitude
-        FROM dados_poste
+          et,
+          coordenadas
+        FROM localizacao_cp_cs
         WHERE cp = $1 AND cs = $2
         LIMIT 1
       `;
       params = [cpNum, csNum];
     } else {
-      // busca só por CP
+      // busca só por CP na tabela localizacao_cp
       queryText = `
         SELECT
           cp,
-          municipio,
-          endereco,
-          bairro,
-          et,
           cp_serie,
-          latitude,
-          longitude
-        FROM dados_poste
+          et,
+          coordenadas
+        FROM localizacao_cp
         WHERE cp = $1
         LIMIT 1
       `;
@@ -89,27 +75,19 @@ app.get("/api/poste", async (req, res) => {
     }
 
     const row = result.rows[0];
-    const coordenadas =
-      row.latitude != null && row.longitude != null
-        ? `${row.latitude},${row.longitude}`
-        : null;
-
+    // monta o objeto de resposta para o front-end
     const item = {
       cp: row.cp,
       ...(csNum !== null && { cs: row.cs }),
-      municipio: row.municipio,
-      endereco: row.endereco,
-      bairro: row.bairro,
-      et: row.et,
       cp_serie: row.cp_serie,
       ...(csNum !== null && { cs_serie: row.cs_serie }),
-      coordenadas,
+      et: row.et,
+      coordenadas: row.coordenadas, // já vem como "lat,lon"
     };
 
     return res.json(item);
   } catch (err) {
     console.error("Erro na consulta ao banco:", err);
-    // retorna mensagem real do erro para facilitar diagnóstico
     return res
       .status(500)
       .json({ error: err.message || "Erro interno no servidor." });
