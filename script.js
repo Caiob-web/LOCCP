@@ -1,3 +1,5 @@
+// script.js
+
 // Função principal para buscar e exibir os dados da API
 async function buscar(event) {
   event.preventDefault();
@@ -13,15 +15,14 @@ async function buscar(event) {
     return;
   }
   if (modo === "cp_cs" && (isNaN(cp) || isNaN(cs))) {
-    resultadoDiv.textContent =
-      "Por favor, preencha CP e CS com valores válidos.";
+    resultadoDiv.textContent = "Por favor, preencha CP e CS com valores válidos.";
     return;
   }
 
   toggleLoading(true);
 
   try {
-    // **URL corrigida para apontar ao handler em /api/poste**
+    // URL corrigida apontando para /api/poste
     const url =
       modo === "cp_cs"
         ? `/api/poste?cp=${cp}&cs=${cs}`
@@ -47,10 +48,6 @@ async function buscar(event) {
 // Função para exibir o resultado, adaptada para cada modo
 function mostrarResultado(item, modo) {
   const resultadoDiv = document.getElementById("resultado");
-  const gps = item.coordenadas || "Coordenadas não disponíveis";
-  const linkCoordenadas = gps.includes(",")
-    ? `https://www.google.com/maps?q=${gps}`
-    : "#";
 
   if (!item) {
     resultadoDiv.textContent =
@@ -58,8 +55,12 @@ function mostrarResultado(item, modo) {
     return;
   }
 
+  const gps = item.coordenadas || "Coordenadas não disponíveis";
+  const linkCoordenadas = gps.includes(",")
+    ? `https://www.google.com/maps?q=${gps}`
+    : "#";
+
   if (modo === "cp_cs") {
-    // Exibe todos os campos para CP + CS
     resultadoDiv.innerHTML = `
       <p><strong>CP:</strong> ${item.cp}</p>
       <p><strong>CS:</strong> ${item.cs}</p>
@@ -71,7 +72,6 @@ function mostrarResultado(item, modo) {
       <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
     `;
   } else {
-    // Exibe apenas os campos para CP puro
     resultadoDiv.innerHTML = `
       <p><strong>CP:</strong> ${item.cp}</p>
       <p><strong>CP Série:</strong> ${item.cp_serie || "N/A"}</p>
