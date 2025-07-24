@@ -7,6 +7,14 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet/dist/leaflet.css"
   />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"
+  />
   <style>
     /* mapa ocupa toda a tela */
     #map { height: 100vh; }
@@ -59,12 +67,23 @@
   </div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
   <script>
     // 1) Inicializa o mapa
     const map = L.map('map').setView([-23.5, -46.6], 10);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
+
+    // adiciona cluster group com carregamento em chunks para performance
+    const markersCluster = L.markerClusterGroup({
+      chunkedLoading: true,
+      chunkProgress: (processed, total, elapsed) => {
+        // opcional: podemos mostrar um spinner ou log no console
+        // console.log(`Processado ${processed} de ${total} marcadores`);
+      }
+    });
+    map.addLayer(markersCluster);
 
     // marcador único da busca
     let singleMarker;
@@ -119,31 +138,29 @@
       }
     });
 
-    // 3) Carrega e desenha todos os pontos com circleMarker menores e valida coords
+    // 3) Carrega e desenha todos os pontos com cluster e marcadores pequenos
     fetch('/api/postes')
       .then(r => r.json())
       .then(({ cpList, csList }) => {
         const draw = item => {
-          if (!item.coords || item.coords.length !== 2) return;  // pula inválidos
+          if (!Array.isArray(item.coords) || item.coords.length !== 2) return;
           const color = item.tipo === 'CP' ? '#0066cc' : '#cc0000';
-          const marker = L.circleMarker(item.coords, {
-            radius: 3,        // bolinha menor
+          const m = L.circleMarker(item.coords, {
+            radius: 3,
             color,
             weight: 1,
             fillOpacity: 0.8
-          }).addTo(map);
-
+          });
           let html = `<strong>${item.tipo}</strong><br/>CP: ${item.cp}`;
           if (item.tipo === 'CP+CS') html += `<br/>CS: ${item.cs}`;
           html += `<br/>CP Série: ${item.cp_serie || 'N/A'}`;
           if (item.tipo === 'CP+CS') html += `<br/>CS Série: ${item.cs_serie}`;
           html += `<br/>ET: ${item.et}`;
-
-          marker.bindPopup(html);
-          marker.on('mouseover', () => marker.openPopup());
-          marker.on('mouseout',  () => marker.closePopup());
+          m.bindPopup(html);
+          m.on('mouseover', () => m.openPopup());
+          m.on('mouseout',  () => m.closePopup());
+          markersCluster.addLayer(m);
         };
-
         cpList.forEach(draw);
         csList.forEach(draw);
       })
