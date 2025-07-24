@@ -6,7 +6,7 @@ const path = require("path");
 
 const app = express();
 
-// 1) Sirva os estáticos de /public (index.html, script.js, mapa.html…)
+// 1) Sirva arquivos estáticos de /public
 app.use(express.static(path.join(__dirname, "public")));
 
 // 2) Configure o pool do Postgres (Neon)
@@ -35,40 +35,39 @@ app.get("/api/poste", async (req, res) => {
   }
 
   try {
-    let result, row;
-
+    let result;
     if (csNum !== null) {
-      // CP + CS: juntamos a tabela de CP (para cp_serie) com a tabela de CP_CS (para cs_serie)
+      // busca por CP+CS unindo cp para pegar cp_serie
       result = await pool.query(
         `
-          SELECT
-            csTable.cp,
-            csTable.cs,
-            cpTable.cp_serie   AS cp_serie,
-            csTable.cs_serie   AS cs_serie,
-            csTable.et,
-            csTable.coordenadas
-          FROM localizacao_cp_cs AS csTable
-          JOIN localizacao_cp    AS cpTable
-            ON csTable.cp = cpTable.cp
-          WHERE csTable.cp = $1
-            AND csTable.cs = $2
-          LIMIT 1
+        SELECT
+          csTable.cp,
+          csTable.cs,
+          cpTable.cp_serie   AS cp_serie,
+          csTable.cs_serie   AS cs_serie,
+          csTable.et,
+          csTable.coordenadas
+        FROM localizacao_cp_cs AS csTable
+        JOIN localizacao_cp    AS cpTable
+          ON csTable.cp = cpTable.cp
+        WHERE csTable.cp = $1
+          AND csTable.cs = $2
+        LIMIT 1
         `,
         [cpNum, csNum]
       );
     } else {
-      // Somente CP: consulta direta na tabela localizacao_cp
+      // busca apenas CP
       result = await pool.query(
         `
-          SELECT
-            cp,
-            cp_serie,
-            et,
-            coordenadas
-          FROM localizacao_cp
-          WHERE cp = $1
-          LIMIT 1
+        SELECT
+          cp,
+          cp_serie,
+          et,
+          coordenadas
+        FROM localizacao_cp
+        WHERE cp = $1
+        LIMIT 1
         `,
         [cpNum]
       );
@@ -80,15 +79,14 @@ app.get("/api/poste", async (req, res) => {
         .send(csNum !== null ? "CP + CS não encontrado." : "CP não encontrado.");
     }
 
-    row = result.rows[0];
-    // Monte o objeto conforme o modo
+    const row = result.rows[0];
     const item = {
       cp: row.cp,
       ...(csNum !== null && { cs: row.cs }),
       cp_serie: row.cp_serie,
       ...(csNum !== null && { cs_serie: row.cs_serie }),
       et: row.et,
-      coordenadas: row.coordenadas, // já vem no formato "lat,lon"
+      coordenadas: row.coordenadas,
     };
 
     return res.json(item);
@@ -99,15 +97,14 @@ app.get("/api/poste", async (req, res) => {
       .json({ error: err.message || "Erro interno no servidor." });
   }
 });
-// GET /api/postes → retorna todas as CP e todas as CP+CS
+
+// 4) GET /api/postes → retorna listas de todos os CP e todos os CP+CS
 app.get("/api/postes", async (req, res) => {
   try {
-    // 1) todas as CPs
     const cpRs = await pool.query(`
       SELECT cp, cp_serie, et, coordenadas
       FROM localizacao_cp
     `);
-    // 2) todas as CP+CS
     const csRs = await pool.query(`
       SELECT cp, cs, cs_serie, et, coordenadas
       FROM localizacao_cp_cs
@@ -135,7 +132,8 @@ app.get("/api/postes", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// 4) Inicia o servidor
+
+// 5) Inicia o servidor
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
