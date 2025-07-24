@@ -59,6 +59,8 @@ function mostrarResultado(item, modo) {
   if (modo === "cp_cs") {
     // Exibe todos os campos para CP + CS
     resultadoDiv.innerHTML = `
+      <p><strong>CP:</strong> ${item.cp}</p>
+      <p><strong>CS:</strong> ${item.cs}</p>
       <p><strong>Município:</strong> ${item.municipio || "N/A"}</p>
       <p><strong>Endereço:</strong> ${item.endereco || "N/A"}</p>
       <p><strong>Bairro:</strong> ${item.bairro || "N/A"}</p>
@@ -69,6 +71,7 @@ function mostrarResultado(item, modo) {
   } else {
     // Exibe apenas os campos para CP puro
     resultadoDiv.innerHTML = `
+      <p><strong>CP:</strong> ${item.cp}</p>
       <p><strong>CP Série:</strong> ${item.cp_serie || "N/A"}</p>
       <p><strong>ET:</strong> ${item.et || "N/A"}</p>
       <p><strong>Localização:</strong> <a href="${linkCoordenadas}" target="_blank">Abrir no Google Maps</a></p>
